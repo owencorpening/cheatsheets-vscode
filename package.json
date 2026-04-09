@@ -1,0 +1,57 @@
+{
+  "name": "cheatsheets",
+  "displayName": "Cheatsheets",
+  "description": "View rendered markdown cheatsheets in the secondary sidebar",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.70.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./src/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "cheatsheets",
+          "title": "Cheatsheets",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cheatsheets": [
+        {
+          "type": "webview",
+          "id": "cheatsheets.panel",
+          "name": ""
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "cheatsheets.toggle",
+        "title": "Cheatsheets: Toggle Panel"
+      },
+      {
+        "command": "cheatsheets.refresh",
+        "title": "Cheatsheets: Refresh"
+      }
+    ],
+    "configuration": {
+      "title": "Cheatsheets",
+      "properties": {
+        "cheatsheets.folder": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to folder containing your .md cheatsheet files"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "workbench.action.toggleSecondarySidebarVisibility",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c"
+      }
+    ]
+  }
+}
