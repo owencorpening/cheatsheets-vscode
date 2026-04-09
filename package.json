@@ -3,11 +3,26 @@
   "displayName": "Cheatsheets",
   "description": "View rendered markdown cheatsheets in the secondary sidebar",
   "version": "0.1.0",
-  "engines": { "vscode": "^1.70.0" },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./src/extension.js",
   "contributes": {
+    "menus": {
+      "editor/context": [
+        {
+          "command": "markdown.showPreviewToSide",
+          "when": "resourceLangId == markdown",
+          "group": "navigation@1"
+        }
+      ]
+    },
     "viewsContainers": {
       "secondarySidebar": [
         {
@@ -48,7 +63,7 @@
     },
     "keybindings": [
       {
-        "command": "workbench.action.toggleSecondarySidebarVisibility",
+        "command": "workbench.action.toggleAuxiliaryBar",
         "key": "ctrl+shift+c",
         "mac": "cmd+shift+c"
       }
