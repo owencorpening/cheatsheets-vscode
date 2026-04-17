@@ -75,8 +75,9 @@ class CheatsheetViewProvider {
     const files = folder ? this._getFiles(folder) : [];
     const firstFile = files.length > 0 ? path.join(folder, files[0]) : null;
     const firstContent = firstFile ? this._parseFile(firstFile) : '';
+    const firstIsHtml = files.length > 0 && files[0].endsWith('.html');
 
-    this._view.webview.html = this._getHtml(folder, files, files[0] || '', firstContent);
+    this._view.webview.html = this._getHtml(folder, files, files[0] || '', firstContent, firstIsHtml);
   }
 
   _renderFile(filename) {
@@ -84,20 +85,24 @@ class CheatsheetViewProvider {
     if (!folder || !filename) return;
     const filepath = path.join(folder, filename);
     const content = this._parseFile(filepath);
-    this._view.webview.postMessage({ command: 'content', html: content, file: filename });
+    const isHtml = filename.endsWith('.html');
+    this._view.webview.postMessage({ command: 'content', html: content, file: filename, isHtml });
   }
 
   _parseFile(filepath) {
     try {
       const raw = fs.readFileSync(filepath, 'utf8');
       if (filepath.endsWith('.html')) return raw;
-      return marked.parse(raw);
+      const html = marked.parse(raw);
+      return html
+        .replace(/<li>\[x\] /gi, '<li><input type="checkbox" checked> ')
+        .replace(/<li>\[ \] /g, '<li><input type="checkbox"> ');
     } catch {
       return '<p style="color:var(--vscode-errorForeground)">Could not read file.</p>';
     }
   }
 
-  _getHtml(folder, files, activeFile, initialContent) {
+  _getHtml(folder, files, activeFile, initialContent, initialIsHtml = false) {
     const fileListItems = files.map(f => `
       <li class="file-item ${f === activeFile ? 'active' : ''}" data-file="${f}" title="${f}">
         ${f.replace(/\.(md|html)$/, '')}
@@ -108,6 +113,10 @@ class CheatsheetViewProvider {
       : files.length === 0
       ? `<div class="empty"><p>No .md or .html files found in:<br><code>${folder}</code></p><button onclick="openSettings()">Change folder</button></div>`
       : '';
+
+    const initialHtml = initialIsHtml
+      ? `<iframe srcdoc="${initialContent.replace(/"/g, '&quot;')}" style="width:100%;height:100%;border:none;"></iframe>`
+      : initialContent;
 
     return `<!DOCTYPE html>
 <html>
@@ -221,7 +230,7 @@ class CheatsheetViewProvider {
 </head>
 <body>
   ${files.length > 0 ? `<div id="sidebar"><ul>${fileListItems}</ul></div>` : ''}
-  <div id="content">${noFolderMsg || initialContent}</div>
+  <div id="content">${noFolderMsg || initialHtml}</div>
 <script>
   const vscode = acquireVsCodeApi();
   let active = ${JSON.stringify(activeFile)};
@@ -235,10 +244,34 @@ class CheatsheetViewProvider {
     });
   });
 
+  function enableCheckboxes(file) {
+    const state = vscode.getState() || {};
+    const checks = state[file] || {};
+    document.querySelectorAll('#content input[type="checkbox"]').forEach((cb, i) => {
+      cb.disabled = false;
+      if (checks[i] !== undefined) cb.checked = checks[i];
+      cb.addEventListener('change', () => {
+        const s = vscode.getState() || {};
+        const c = s[file] || {};
+        c[i] = cb.checked;
+        s[file] = c;
+        vscode.setState(s);
+      });
+    });
+  }
+
+  enableCheckboxes(active);
+
   window.addEventListener('message', e => {
     const msg = e.data;
     if (msg.command === 'content') {
-      document.getElementById('content').innerHTML = msg.html;
+      const el = document.getElementById('content');
+      if (msg.isHtml) {
+        el.innerHTML = '<iframe srcdoc="' + msg.html.replace(/"/g, '&quot;') + '" style="width:100%;height:100%;border:none;"></iframe>';
+      } else {
+        el.innerHTML = msg.html;
+        enableCheckboxes(msg.file);
+      }
     }
   });
 
