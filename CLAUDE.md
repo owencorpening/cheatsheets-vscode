@@ -1,9 +1,9 @@
 # CLAUDE.md — cheatsheets-vscode
 
 ## Status
-- **State:** Shipped
-- **Next action:** Publish to the VS Code Marketplace (package is built: cheatsheets-0.1.0.vsix).
-- **Last updated:** 2026-04-30
+- **State:** 0.2.0 is Marketplace-ready (icon, license, README, metadata, fixes).
+- **Next action:** Owen creates the Marketplace publisher `owencorpening`, then publishes cheatsheets-0.2.0.vsix.
+- **Last updated:** 2026-11-23
 
 ## What this is
 
@@ -16,12 +16,14 @@ VS Code extension that renders local markdown and HTML cheatsheets in the second
 ## Install (dev)
 
 ```bash
-# Build .vsix
-vsce package
-
-# Install locally
-code --install-extension cheatsheets-0.1.0.vsix
+npm test                  # node --test with a small vscode mock (test/vscode-mock.js)
+npx @vscode/vsce package  # builds cheatsheets-<version>.vsix
+code --install-extension cheatsheets-0.2.0.vsix
 ```
+
+- Markdown is rendered by vendored marked (media/marked.cjs, MIT). Update it by copying lib/marked.cjs from the marked npm package.
+- The icon is drawn in images/icon-source.svg (granite #4a4f54, brass #b8860b to #e9c46a) and exported to images/icon.png at 128px.
+- README images must use absolute raw.githubusercontent.com URLs so they show on the Marketplace.
 
 ## Deploy
 
@@ -31,4 +33,4 @@ bash deploy.sh
 
 ## Repo
 - owencorpening/cheatsheets-vscode
-- Shipped April 2025
+- First version April 2026

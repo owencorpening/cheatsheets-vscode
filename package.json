@@ -1,28 +1,49 @@
 {
   "name": "cheatsheets",
   "displayName": "Cheatsheets",
-  "description": "View rendered markdown cheatsheets in the secondary sidebar",
-  "version": "0.1.0",
+  "description": "Keep your own Markdown and HTML cheatsheets open in the secondary sidebar while you code.",
+  "version": "0.2.0",
+  "publisher": "owencorpening",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#4a4f54",
+    "theme": "dark"
+  },
+  "homepage": "https://owensappliedthinking.com/tools/cheatsheets/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/owencorpening/cheatsheets-vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/owencorpening/cheatsheets-vscode/issues"
+  },
+  "keywords": [
+    "cheatsheet",
+    "cheat sheet",
+    "reference",
+    "notes",
+    "markdown",
+    "html",
+    "sidebar",
+    "secondary sidebar"
+  ],
   "engines": {
     "vscode": "^1.70.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Education"
   ],
   "activationEvents": [
     "onStartupFinished"
   ],
   "main": "./src/extension.js",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "package": "npx @vscode/vsce package"
+  },
   "contributes": {
-    "menus": {
-      "editor/context": [
-        {
-          "command": "markdown.showPreviewToSide",
-          "when": "resourceLangId == markdown",
-          "group": "navigation@1"
-        }
-      ]
-    },
     "viewsContainers": {
       "secondarySidebar": [
         {
@@ -57,15 +78,15 @@
         "cheatsheets.folder": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to folder containing your .md cheatsheet files"
+          "description": "Absolute path to the folder that holds your .md and .html cheatsheets. If empty, the first open workspace folder is used."
         }
       }
     },
     "keybindings": [
       {
-        "command": "workbench.action.toggleAuxiliaryBar",
-        "key": "ctrl+shift+c",
-        "mac": "cmd+shift+c"
+        "command": "cheatsheets.toggle",
+        "key": "ctrl+alt+c",
+        "mac": "ctrl+cmd+c"
       }
     ]
   }
