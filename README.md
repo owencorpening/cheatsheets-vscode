@@ -2,7 +2,7 @@
 
 Keep your own reference notes open while you code. Cheatsheets shows the Markdown and HTML files from a folder you choose in VS Code's secondary sidebar: the list on the left, the sheet on the right. One shortcut shows it and hides it.
 
-![The Cheatsheets panel showing a Git cheatsheet with a table, a code block, and a checklist](https://raw.githubusercontent.com/owencorpening/cheatsheets-vscode/main/images/screenshot.png)
+![The Cheatsheets panel showing a Git cheatsheet with a table, a code block, and a checklist](https://raw.githubusercontent.com/owencorpening/cheatsheets-vscode/master/images/screenshot.png)
 
 ## Features
 
