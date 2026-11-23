@@ -1,12 +1,13 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const { marked } = require('../media/marked.min.js');
+const { marked } = require('../media/marked.cjs');
 
 let panel = null;
 
 function activate(context) {
   const provider = new CheatsheetViewProvider(context.extensionUri);
+  context.subscriptions.push(provider);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('cheatsheets.panel', provider, {
@@ -18,21 +19,68 @@ function activate(context) {
     vscode.commands.registerCommand('cheatsheets.refresh', () => provider.refresh())
   );
 
+  // Show the Cheatsheets panel, or hide the secondary sidebar if it is already showing.
   context.subscriptions.push(
     vscode.commands.registerCommand('cheatsheets.toggle', () => {
-      vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
+      if (provider.isVisible()) {
+        vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
+      } else {
+        vscode.commands.executeCommand('cheatsheets.panel.focus');
+      }
     })
   );
 
-  vscode.workspace.onDidChangeConfiguration(e => {
-    if (e.affectsConfiguration('cheatsheets.folder')) provider.refresh();
-  });
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('cheatsheets.folder')) provider.refresh();
+    })
+  );
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 class CheatsheetViewProvider {
   constructor(extensionUri) {
     this._extensionUri = extensionUri;
     this._view = null;
+    this._active = null;
+    this._watcher = null;
+    this._watchedFolder = null;
+    this._refreshTimer = null;
+  }
+
+  isVisible() {
+    return !!(this._view && this._view.visible);
+  }
+
+  dispose() {
+    if (this._watcher) this._watcher.dispose();
+    clearTimeout(this._refreshTimer);
+  }
+
+  // Watch the cheatsheets folder so added, renamed, or edited files show up without a manual Refresh.
+  _watch(folder) {
+    if (folder === this._watchedFolder) return;
+    if (this._watcher) this._watcher.dispose();
+    this._watcher = null;
+    this._watchedFolder = folder;
+    if (!folder) return;
+    const pattern = new vscode.RelativePattern(vscode.Uri.file(folder), '*.{md,html}');
+    this._watcher = vscode.workspace.createFileSystemWatcher(pattern);
+    const later = () => {
+      clearTimeout(this._refreshTimer);
+      this._refreshTimer = setTimeout(() => this.refresh(), 300);
+    };
+    this._watcher.onDidCreate(later);
+    this._watcher.onDidChange(later);
+    this._watcher.onDidDelete(later);
   }
 
   resolveWebviewView(webviewView) {
@@ -41,7 +89,10 @@ class CheatsheetViewProvider {
     this._render();
 
     webviewView.webview.onDidReceiveMessage(msg => {
-      if (msg.command === 'load') this._renderFile(msg.file);
+      if (msg.command === 'load') {
+        this._active = msg.file;
+        this._renderFile(msg.file);
+      }
       if (msg.command === 'openSettings') {
         vscode.commands.executeCommand('workbench.action.openSettings', 'cheatsheets.folder');
       }
@@ -72,17 +123,22 @@ class CheatsheetViewProvider {
 
   _render() {
     const folder = this._getFolder();
+    this._watch(folder);
     const files = folder ? this._getFiles(folder) : [];
-    const firstFile = files.length > 0 ? path.join(folder, files[0]) : null;
-    const firstContent = firstFile ? this._parseFile(firstFile) : '';
-    const firstIsHtml = files.length > 0 && files[0].endsWith('.html');
+    // Keep the open cheatsheet across refreshes; fall back to the first file.
+    const active = files.includes(this._active) ? this._active : (files[0] || '');
+    this._active = active || null;
+    const content = active ? this._parseFile(path.join(folder, active)) : '';
+    const isHtml = active.endsWith('.html');
 
-    this._view.webview.html = this._getHtml(folder, files, files[0] || '', firstContent, firstIsHtml);
+    this._view.webview.html = this._getHtml(folder, files, active, content, isHtml);
   }
 
   _renderFile(filename) {
     const folder = this._getFolder();
     if (!folder || !filename) return;
+    // Only open files that are actually listed in the cheatsheets folder.
+    if (!this._getFiles(folder).includes(filename)) return;
     const filepath = path.join(folder, filename);
     const content = this._parseFile(filepath);
     const isHtml = filename.endsWith('.html');
@@ -93,10 +149,8 @@ class CheatsheetViewProvider {
     try {
       const raw = fs.readFileSync(filepath, 'utf8');
       if (filepath.endsWith('.html')) return raw;
-      const html = marked.parse(raw);
-      return html
-        .replace(/<li>\[x\] /gi, '<li><input type="checkbox" checked> ')
-        .replace(/<li>\[ \] /g, '<li><input type="checkbox"> ');
+      // GFM: tables, task lists (- [ ] / - [x]), strikethrough, autolinks.
+      return marked.parse(raw, { gfm: true });
     } catch {
       return '<p style="color:var(--vscode-errorForeground)">Could not read file.</p>';
     }
@@ -104,14 +158,14 @@ class CheatsheetViewProvider {
 
   _getHtml(folder, files, activeFile, initialContent, initialIsHtml = false) {
     const fileListItems = files.map(f => `
-      <li class="file-item ${f === activeFile ? 'active' : ''}" data-file="${f}" title="${f}">
-        ${f.replace(/\.(md|html)$/, '')}
+      <li class="file-item ${f === activeFile ? 'active' : ''}" data-file="${escapeHtml(f)}" title="${escapeHtml(f)}">
+        ${escapeHtml(f.replace(/\.(md|html)$/, ''))}
       </li>`).join('');
 
     const noFolderMsg = !folder
-      ? `<div class="empty"><p>No folder set.</p><button onclick="openSettings()">Set cheatsheets folder</button></div>`
+      ? `<div class="empty"><p>No cheatsheets folder set.</p><button onclick="openSettings()">Set cheatsheets folder</button></div>`
       : files.length === 0
-      ? `<div class="empty"><p>No .md or .html files found in:<br><code>${folder}</code></p><button onclick="openSettings()">Change folder</button></div>`
+      ? `<div class="empty"><p>No .md or .html files found in:<br><code>${escapeHtml(folder)}</code></p><button onclick="openSettings()">Change folder</button></div>`
       : '';
 
     const initialHtml = initialIsHtml
@@ -233,7 +287,7 @@ class CheatsheetViewProvider {
   <div id="content">${noFolderMsg || initialHtml}</div>
 <script>
   const vscode = acquireVsCodeApi();
-  let active = ${JSON.stringify(activeFile)};
+  let active = ${JSON.stringify(activeFile).replace(/</g, '\\u003c')};
 
   document.querySelectorAll('.file-item').forEach(el => {
     el.addEventListener('click', () => {

@@ -1,0 +1,10 @@
+.git/**
+.gitignore
+test/**
+images/icon-source.svg
+deploy.sh
+CLAUDE.md
+AGENTS.md
+**/*.vsix
+**/*.map
+node_modules/**
